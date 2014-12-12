@@ -69,8 +69,8 @@ model {
       # sigma_w ~ normal(0,10);
       L_u ~ lkj_corr_cholesky(4.0);
       L_w ~ lkj_corr_cholesky(4.0);
-      # to_vector(z_u) ~ normal(0,1);
-      # to_vector(z_w) ~ normal(0,1);
+      to_vector(z_u) ~ normal(0,1);
+      to_vector(z_w) ~ normal(0,1);
       rt ~ normal(mu, sigma);  // in the glmm with binomial link normal has to be replaced by binomial, and sigma has to be removed
 
 
