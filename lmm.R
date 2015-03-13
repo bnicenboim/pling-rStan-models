@@ -6,25 +6,27 @@ library(MASS)
 #############
 ### Simulation of typical dataset of psycholinguistics
 ### in latin-square
-N_subj <- 40
-N_item <- 20
-N_coef <- 4  #number of coeficients for a 2x2 design:
-            # 1 + beta1 X1 + beta2 X2 + beta3 X1 X2
+N_subj <- 80
+N_item <- 40
+N_coef <- 4  
+            
 #we assume that the -1000/DV is normally distributed (as typically happens with RT)
-#2 conditions with 2 levels:
+#2 conditions with 2 levels: 1a,1b x 2a,2b
+
 (coefs <- c(-1000/500, -1000/540+1000/500, -1000/540+1000/500, -1000/550+1000/500))
 
-sdev_subj <- c(.9,.1,.1,.01) 
-sdev_item <- c(.2,.01,.01,.01) # 
+sdev_subj <-c(.9,.03,.03,.03) 
+sdev_item <- c(.2,.005,.005,.005) 
 sdev <- .3                   # sigma in bayesian model
 rho_subjs <- .25
 rho_items <- .02
 
-#so that each item includes every combination (no latin square):
+#latin square:
 
 conditions <- data.frame(
   c1=rep(c("a","b"),(N_item+1)*N_subj/4),
-    c2=rep(c("c","d"),(N_item+1),each=N_item/4),r=rep(1:(N_item+1),N_subj) )
+    c2=rep(c("a","b"),(N_item+1),each=N_item/2),r=rep(1:(N_item+1),N_subj) )
+
 conditions<-conditions[conditions$r!=(N_item+1),c("c1","c2")]
 
 contrasts(conditions$c1) <- contr.sum(2)
@@ -102,12 +104,30 @@ summary(m2_full <- lmer(I(-1000/rt) ~ c1*c2 + (c1*c2|subj) +(c1*c2|item), datalo
 
 #################################3
 ## Bayesian LMM with RStan
+library(parallel)
+
+parallelizeStan <- function(fit, data,iter=2000,cores=4){
+      print("Starting...")
+
+    temp0 <- sampling(fit,data=data,chains=0)
+    print("Starting first chain...")
+    sflist <- 
+    mclapply(1:cores, mc.cores = cores, 
+               function(i) #{sink(sprintf("chain_progress_%d.txt", i))
+                stan(fit = temp0, data = data, chains = 1, chain_id = i, iter=iter,
+                                refresh = -1)
+              #}
+
+               )
+    return(sflist2stanfit(sflist))
+}
+
 
 library(rstan)
 stan_lmm <- stan_model(file="lmm.stan") 
 
 
-niter <- 3000
+niter <- 500
 nchains <- 4
 
 subj <- as.numeric(as.character(datalong$subj))
@@ -138,11 +158,18 @@ lsdata <- list(rt=rt,
 ) 
 
 
-samples_lmm_1 <- sampling(stan_lmm,    
+# samples_lmm_1 <- sampling(stan_lmm,    
+#                 data=lsdata, 
+#                 iter=niter,
+#                 chains=nchains
+#                 )
+
+samples_lmm_1 <- parallelizeStan(stan_lmm,    
                 data=lsdata, 
                 iter=niter,
-                chains=nchains
+                cores=nchains
                 )
+
 
 
 
@@ -180,10 +207,17 @@ lsdata <- list(rt=rt,
 
 
 
-samples_lmm_full <- sampling(stan_lmm,    
+# samples_lmm_full <- sampling(stan_lmm,    
+#                 data=lsdata, 
+#                 iter=niter,
+#                 chains=nchains
+#                 )
+
+
+ samples_lmm_full <- parallelizeStan(stan_lmm,    
                 data=lsdata, 
                 iter=niter,
-                chains=nchains
+                cores=nchains
                 )
 
 
